@@ -107,7 +107,7 @@ class _NativeLanguageScreenState extends State<NativeLanguageScreen> {
                       : null,
                   selected: isSelected,
                   selectedTileColor:
-                      Theme.of(context).primaryColor.withOpacity(0.1),
+                      Theme.of(context).primaryColor.withAlpha(26),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),

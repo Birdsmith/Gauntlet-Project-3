@@ -1,31 +1,51 @@
 import 'package:flutter/material.dart';
-import '../../services/auth_service.dart';
+import '../video_feed_screen.dart';
+import '../exploration_screen.dart';
+import '../profile/profile_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final authService = AuthService();
+  State<HomeScreen> createState() => _HomeScreenState();
+}
 
+class _HomeScreenState extends State<HomeScreen> {
+  int _selectedIndex = 0;
+
+  final List<Widget> _screens = const [
+    VideoFeedScreen(),
+    ExplorationScreen(),
+    ProfileScreen(),
+  ];
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('ReelAI'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await authService.signOut();
-              // The AuthWrapper will automatically handle navigation
-            },
+      body: _screens[_selectedIndex],
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: _onItemTapped,
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.video_library),
+            label: 'Feed',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.explore),
+            label: 'Explore',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.person),
+            label: 'Profile',
           ),
         ],
-      ),
-      body: const Center(
-        child: Text(
-          'Welcome to ReelAI!',
-          style: TextStyle(fontSize: 24),
-        ),
       ),
     );
   }

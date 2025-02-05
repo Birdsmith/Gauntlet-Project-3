@@ -35,6 +35,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
       // Navigate to home screen or handle success
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e.toString())),
       );

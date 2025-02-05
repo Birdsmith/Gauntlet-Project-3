@@ -1,0 +1,29 @@
+{
+  "name": "gauntlet-project-3",
+  "version": "1.0.0",
+  "description": "A TikTok-style mobile application focused on language learning through short-form video content.",
+  "main": "create_test_lesson.js",
+  "directories": {
+    "doc": "docs",
+    "lib": "lib",
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Birdsmith/Gauntlet-Project-3.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Birdsmith/Gauntlet-Project-3/issues"
+  },
+  "homepage": "https://github.com/Birdsmith/Gauntlet-Project-3#readme",
+  "dependencies": {
+    "firebase-admin": "^13.0.2"
+  }
+}

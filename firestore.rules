@@ -1,0 +1,43 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function isValidLesson() {
+      let lesson = request.resource.data;
+      return 
+        lesson.title is string && lesson.title.size() > 0 &&
+        lesson.description is string &&
+        lesson.language is string &&
+        lesson.level in ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] &&
+        lesson.videoUrl is string && lesson.videoUrl.size() > 0 &&
+        lesson.topics is list &&
+        lesson.duration is number && lesson.duration > 0 &&
+        lesson.createdById == request.auth.uid &&
+        (lesson.metadata == null || lesson.metadata is map);
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated() && isOwner(userId);
+      allow delete: if false; // Prevent user deletion through client
+    }
+
+    // Lessons collection
+    match /lessons/{lessonId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidLesson();
+      allow update: if false; // Only admins can update lessons
+      allow delete: if false; // Only admins can delete lessons
+    }
+  }
+} 

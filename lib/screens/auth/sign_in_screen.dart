@@ -41,6 +41,7 @@ class _SignInScreenState extends State<SignInScreen> {
       );
       // Navigate to home screen or handle success
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e.toString())),
       );
@@ -55,6 +56,7 @@ class _SignInScreenState extends State<SignInScreen> {
       await _authService.signInWithGoogle();
       // Navigate to home screen or handle success
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e.toString())),
       );

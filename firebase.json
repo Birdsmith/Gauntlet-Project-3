@@ -1,1 +1,30 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"gauntlet-project-3","appId":"1:303259840444:android:bd12cf7736539dcedb45b9","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"gauntlet-project-3","configurations":{"android":"1:303259840444:android:bd12cf7736539dcedb45b9","web":"1:303259840444:web:859314f9f3837dccdb45b9","windows":"1:303259840444:web:5106f64e1b0f1c49db45b9"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "gauntlet-project-3",
+          "appId": "1:303259840444:android:bd12cf7736539dcedb45b9",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "gauntlet-project-3",
+          "configurations": {
+            "android": "1:303259840444:android:bd12cf7736539dcedb45b9",
+            "web": "1:303259840444:web:859314f9f3837dccdb45b9",
+            "windows": "1:303259840444:web:5106f64e1b0f1c49db45b9"
+          }
+        }
+      }
+    }
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  }
+}

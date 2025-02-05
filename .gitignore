@@ -58,3 +58,9 @@ firebase_options.dart
 **/*.jks
 .env
 .env.*
+
+# Firebase service account
+serviceAccountKey.json
+
+# Node.js dependencies
+node_modules/

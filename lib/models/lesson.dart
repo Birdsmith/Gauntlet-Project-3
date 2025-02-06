@@ -17,6 +17,8 @@ class Lesson {
   final String createdById;
   final String createdByName;
   final Map<String, dynamic>? metadata;
+  final Map<String, String>? subtitleUrls; // Map of language codes to subtitle URLs
+  final String? defaultSubtitleLanguage;
 
   Lesson({
     required this.id,
@@ -35,6 +37,8 @@ class Lesson {
     required this.createdById,
     required this.createdByName,
     this.metadata,
+    this.subtitleUrls,
+    this.defaultSubtitleLanguage,
   });
 
   // Create from Firestore document
@@ -56,6 +60,10 @@ class Lesson {
       createdById: map['createdById'] ?? '',
       createdByName: map['createdByName'] ?? '',
       metadata: map['metadata'],
+      subtitleUrls: map['subtitleUrls'] != null 
+          ? Map<String, String>.from(map['subtitleUrls'])
+          : null,
+      defaultSubtitleLanguage: map['defaultSubtitleLanguage'],
     );
   }
 
@@ -77,6 +85,8 @@ class Lesson {
       'createdById': createdById,
       'createdByName': createdByName,
       'metadata': metadata,
+      'subtitleUrls': subtitleUrls,
+      'defaultSubtitleLanguage': defaultSubtitleLanguage,
     };
   }
 
@@ -97,6 +107,8 @@ class Lesson {
     String? createdById,
     String? createdByName,
     Map<String, dynamic>? metadata,
+    Map<String, String>? subtitleUrls,
+    String? defaultSubtitleLanguage,
   }) {
     return Lesson(
       id: id,
@@ -115,6 +127,8 @@ class Lesson {
       createdById: createdById ?? this.createdById,
       createdByName: createdByName ?? this.createdByName,
       metadata: metadata ?? this.metadata,
+      subtitleUrls: subtitleUrls ?? this.subtitleUrls,
+      defaultSubtitleLanguage: defaultSubtitleLanguage ?? this.defaultSubtitleLanguage,
     );
   }
 } 

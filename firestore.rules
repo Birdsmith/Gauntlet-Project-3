@@ -25,19 +25,89 @@ service cloud.firestore {
         (lesson.metadata == null || lesson.metadata is map);
     }
 
+    function isValidComment() {
+      let comment = request.resource.data;
+      return 
+        comment.text is string && comment.text.size() > 0 &&
+        comment.userId == request.auth.uid &&
+        comment.createdAt is timestamp;
+    }
+
+    function isValidCollection() {
+      let collection = request.resource.data;
+      return 
+        collection.name is string && collection.name.size() > 0 &&
+        collection.description is string &&
+        (collection.emoji == null || collection.emoji is string) &&
+        collection.lessonIds is list &&
+        collection.lessonCount is number &&
+        collection.createdById == request.auth.uid &&
+        (collection.createdAt is timestamp || collection.createdAt == request.time) &&
+        (collection.updatedAt is timestamp || collection.updatedAt == request.time);
+    }
+
+    function isCounterUpdate() {
+      let currentData = resource.data;
+      let newData = request.resource.data;
+      let allowedFields = ['likeCount', 'commentCount', 'saveCount', 'viewCount'];
+      
+      // Check if only counter fields are being modified
+      let unchangedFields = currentData.keys().hasAll(newData.keys()) 
+                          && newData.keys().hasAll(currentData.keys())
+                          && currentData.keys().removeAll(allowedFields).hasAll(
+                             newData.keys().removeAll(allowedFields)
+                          );
+      
+      // Check if counter changes are valid
+      let validChanges = 
+        (newData.likeCount == currentData.likeCount + 1 || newData.likeCount == currentData.likeCount - 1) ||
+        (newData.commentCount == currentData.commentCount + 1 || newData.commentCount == currentData.commentCount - 1) ||
+        (newData.saveCount == currentData.saveCount + 1 || newData.saveCount == currentData.saveCount - 1) ||
+        (newData.viewCount == currentData.viewCount + 1);
+      
+      return unchangedFields && validChanges;
+    }
+
     // Users collection
     match /users/{userId} {
       allow read: if isAuthenticated();
       allow create, update: if isAuthenticated() && isOwner(userId);
       allow delete: if false; // Prevent user deletion through client
+
+      // User's liked lessons
+      match /likedLessons/{lessonId} {
+        allow read: if isAuthenticated();
+        allow write: if isAuthenticated() && isOwner(userId);
+      }
+
+      // User's saved lessons
+      match /savedLessons/{lessonId} {
+        allow read: if isAuthenticated();
+        allow write: if isAuthenticated() && isOwner(userId);
+      }
+
+      // User's collections
+      match /collections/{collectionId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && isOwner(userId) && isValidCollection();
+        allow update: if isAuthenticated() && isOwner(userId);
+        allow delete: if isAuthenticated() && isOwner(userId);
+      }
     }
 
     // Lessons collection
     match /lessons/{lessonId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && isValidLesson();
-      allow update: if false; // Only admins can update lessons
+      allow update: if isAuthenticated() && isCounterUpdate(); // Allow counter updates
       allow delete: if false; // Only admins can delete lessons
+
+      // Comments subcollection
+      match /comments/{commentId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && isValidComment();
+        allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      }
     }
   }
 } 

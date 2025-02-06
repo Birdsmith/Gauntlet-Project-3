@@ -4,6 +4,8 @@ import 'package:chewie/chewie.dart';
 import '../models/lesson.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:developer' as developer;
+import '../services/interaction_service.dart';
+import '../widgets/lesson_interaction_buttons.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
   final Lesson lesson;
@@ -22,6 +24,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   ChewieController? _chewieController;
   bool _isLoading = true;
   String? _errorMessage;
+  final InteractionService _interactionService = InteractionService();
 
   @override
   void initState() {
@@ -144,40 +147,49 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 ],
               ),
             ),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.lesson.title,
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  widget.lesson.description,
-                  style: Theme.of(context).textTheme.bodyLarge,
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Chip(
-                      label: Text(widget.lesson.language),
-                      avatar: const Icon(Icons.language),
-                    ),
-                    const SizedBox(width: 8),
-                    Chip(
-                      label: Text(widget.lesson.level),
-                      avatar: const Icon(Icons.stairs),
-                    ),
-                    const SizedBox(width: 8),
-                    Chip(
-                      label: Text(widget.lesson.topics.join(', ')),
-                      avatar: const Icon(Icons.category),
-                    ),
-                  ],
-                ),
-              ],
+          LessonInteractionButtons(
+            lesson: widget.lesson,
+            interactionService: _interactionService,
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.lesson.title,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    widget.lesson.description,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      const Icon(Icons.bar_chart, size: 16),
+                      const SizedBox(width: 4),
+                      Text('Level: ${widget.lesson.level}'),
+                      const SizedBox(width: 16),
+                      const Icon(Icons.timer, size: 16),
+                      const SizedBox(width: 4),
+                      Text('${widget.lesson.duration.toStringAsFixed(1)} min'),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    children: widget.lesson.topics.map((topic) {
+                      return Chip(
+                        label: Text(topic),
+                        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
             ),
           ),
         ],

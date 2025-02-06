@@ -3,6 +3,8 @@ import 'package:video_player/video_player.dart';
 import '../models/lesson.dart';
 import '../services/lesson_service.dart';
 import '../services/user_service.dart';
+import '../services/interaction_service.dart';
+import '../widgets/comments_sheet.dart';
 
 class ExplorationScreen extends StatefulWidget {
   const ExplorationScreen({super.key});
@@ -132,14 +134,109 @@ class _VideoPage extends StatefulWidget {
 
 class _VideoPageState extends State<_VideoPage> {
   late VideoPlayerController _controller;
+  final InteractionService _interactionService = InteractionService();
   bool _isInitialized = false;
   String? _errorMessage;
   bool _isPlaying = false;
+  bool _isLiked = false;
+  bool _isSaved = false;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
     _initializeVideo();
+    _loadInteractionState();
+  }
+
+  Future<void> _loadInteractionState() async {
+    try {
+      final hasLiked = await _interactionService.hasLikedLesson(widget.lesson.id);
+      final hasSaved = await _interactionService.hasSavedLesson(widget.lesson.id);
+      
+      if (mounted) {
+        setState(() {
+          _isLiked = hasLiked;
+          _isSaved = hasSaved;
+        });
+      }
+    } catch (e) {
+      // Silently handle error - non-critical functionality
+      debugPrint('Error loading interaction state: $e');
+    }
+  }
+
+  Future<void> _toggleLike() async {
+    if (_isLoading) return;
+    
+    setState(() => _isLoading = true);
+    try {
+      await _interactionService.toggleLikeLesson(widget.lesson.id);
+      if (mounted) {
+        setState(() => _isLiked = !_isLiked);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.toString()}')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _toggleSave() async {
+    if (_isLoading) return;
+    
+    setState(() => _isLoading = true);
+    try {
+      await _interactionService.toggleSaveLesson(widget.lesson.id);
+      if (mounted) {
+        setState(() => _isSaved = !_isSaved);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.toString()}')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  void _showComments() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.9,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (_, controller) => CommentsSheet(
+          lesson: widget.lesson,
+          interactionService: _interactionService,
+          scrollController: controller,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _shareLesson() async {
+    try {
+      await _interactionService.shareLesson(widget.lesson);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error sharing lesson: ${e.toString()}')),
+        );
+      }
+    }
   }
 
   Future<void> _initializeVideo() async {
@@ -271,27 +368,29 @@ class _VideoPageState extends State<_VideoPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 _buildActionButton(
-                  Icons.favorite_border,
+                  _isLiked ? Icons.favorite : Icons.favorite_border,
                   'Like',
-                  onTap: () {
-                    // TODO: Implement like functionality
-                  },
+                  color: _isLiked ? Colors.red : Colors.white,
+                  onTap: _toggleLike,
                 ),
                 const SizedBox(height: 16),
                 _buildActionButton(
                   Icons.comment,
                   'Comment',
-                  onTap: () {
-                    // TODO: Implement comment functionality
-                  },
+                  onTap: _showComments,
                 ),
                 const SizedBox(height: 16),
                 _buildActionButton(
                   Icons.share,
                   'Share',
-                  onTap: () {
-                    // TODO: Implement share functionality
-                  },
+                  onTap: _shareLesson,
+                ),
+                const SizedBox(height: 16),
+                _buildActionButton(
+                  _isSaved ? Icons.bookmark : Icons.bookmark_border,
+                  'Save',
+                  color: _isSaved ? Colors.blue : Colors.white,
+                  onTap: _toggleSave,
                 ),
               ],
             ),
@@ -301,9 +400,9 @@ class _VideoPageState extends State<_VideoPage> {
     );
   }
 
-  Widget _buildActionButton(IconData icon, String label, {VoidCallback? onTap}) {
+  Widget _buildActionButton(IconData icon, String label, {Color? color, VoidCallback? onTap}) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: _isLoading ? null : onTap,
       child: Column(
         children: [
           Container(
@@ -314,7 +413,7 @@ class _VideoPageState extends State<_VideoPage> {
             ),
             child: Icon(
               icon,
-              color: Colors.white,
+              color: color ?? Colors.white,
               size: 28,
             ),
           ),

@@ -10,6 +10,9 @@ class Lesson {
   final String language;
   final List<String> topics;
   final int viewCount;
+  final int likeCount;
+  final int commentCount;
+  final int saveCount;
   final DateTime createdAt;
   final String createdById;
   final String createdByName;
@@ -25,6 +28,9 @@ class Lesson {
     required this.language,
     required this.topics,
     required this.viewCount,
+    this.likeCount = 0,
+    this.commentCount = 0,
+    this.saveCount = 0,
     required this.createdAt,
     required this.createdById,
     required this.createdByName,
@@ -43,6 +49,9 @@ class Lesson {
       language: map['language'] ?? '',
       topics: List<String>.from(map['topics'] ?? []),
       viewCount: map['viewCount'] ?? 0,
+      likeCount: map['likeCount'] ?? 0,
+      commentCount: map['commentCount'] ?? 0,
+      saveCount: map['saveCount'] ?? 0,
       createdAt: (map['createdAt'] as Timestamp).toDate(),
       createdById: map['createdById'] ?? '',
       createdByName: map['createdByName'] ?? '',
@@ -61,7 +70,10 @@ class Lesson {
       'language': language,
       'topics': topics,
       'viewCount': viewCount,
-      'createdAt': createdAt,
+      'likeCount': likeCount,
+      'commentCount': commentCount,
+      'saveCount': saveCount,
+      'createdAt': Timestamp.fromDate(createdAt),
       'createdById': createdById,
       'createdByName': createdByName,
       'metadata': metadata,
@@ -78,6 +90,9 @@ class Lesson {
     String? language,
     List<String>? topics,
     int? viewCount,
+    int? likeCount,
+    int? commentCount,
+    int? saveCount,
     DateTime? createdAt,
     String? createdById,
     String? createdByName,
@@ -93,6 +108,9 @@ class Lesson {
       language: language ?? this.language,
       topics: topics ?? this.topics,
       viewCount: viewCount ?? this.viewCount,
+      likeCount: likeCount ?? this.likeCount,
+      commentCount: commentCount ?? this.commentCount,
+      saveCount: saveCount ?? this.saveCount,
       createdAt: createdAt ?? this.createdAt,
       createdById: createdById ?? this.createdById,
       createdByName: createdByName ?? this.createdByName,

@@ -21,6 +21,8 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
   List<Lesson> _lessons = [];
   bool _isLoading = false;
   String? _error;
+  bool _isSearching = false;
+  final TextEditingController _searchController = TextEditingController();
   
   static const List<String> _levels = ['Beginner', 'Intermediate', 'Advanced'];
   static const List<String> _topics = [
@@ -50,6 +52,12 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
     // Clear image cache when screen is loaded
     PaintingBinding.instance.imageCache.clear();
     PaintingBinding.instance.imageCache.clearLiveImages();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _queueVideoInitialization(Future<void> Function() initFunction) async {
@@ -89,19 +97,35 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
   }
 
   Future<void> _loadLessons() async {
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
+      _error = null;
     });
 
     try {
-      final Map<String, String> proficiencyLevels = {
-        'Beginner': 'A1',
-        'Intermediate': 'B1',
-        'Advanced': 'C1',
-      };
+      final userProfile = await _userService.getUserProfile();
+      if (userProfile == null) throw Exception('User profile not found');
+
+      _filteredLanguages = userProfile.targetLanguages;
+      final proficiencyLevels = userProfile.proficiencyLevels;
+
+      if (_filteredLanguages.isEmpty) {
+        setState(() {
+          _isLoading = false;
+        });
+        return;
+      }
 
       Stream<List<Lesson>> lessonsStream;
-      if (_selectedTopics.isNotEmpty) {
+      
+      if (_searchController.text.isNotEmpty) {
+        lessonsStream = _lessonService.searchLessons(
+          _searchController.text,
+          languages: _filteredLanguages,
+          proficiencyLevels: _selectedLevel != null ? {_selectedLevel!: proficiencyLevels[_selectedLevel!]!} : proficiencyLevels,
+        );
+      } else if (_selectedTopics.isNotEmpty) {
         lessonsStream = _lessonService.getLessonsByTopics(
           topics: _selectedTopics,
           languages: _filteredLanguages,
@@ -262,8 +286,35 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Video Feed'),
+        title: _isSearching
+          ? TextField(
+              controller: _searchController,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: 'Search lessons...',
+                border: InputBorder.none,
+                hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
+              ),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+              onChanged: (value) {
+                _loadLessons();
+              },
+            )
+          : const Text('Video Feed'),
         actions: [
+          IconButton(
+            icon: Icon(_isSearching ? Icons.close : Icons.search),
+            onPressed: () {
+              setState(() {
+                if (_isSearching) {
+                  _searchController.clear();
+                  _loadLessons();
+                }
+                _isSearching = !_isSearching;
+              });
+            },
+            tooltip: _isSearching ? 'Clear search' : 'Search lessons',
+          ),
           IconButton(
             icon: const Icon(Icons.filter_list),
             onPressed: _showFilterDialog,

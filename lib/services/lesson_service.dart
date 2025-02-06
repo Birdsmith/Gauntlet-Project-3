@@ -56,7 +56,7 @@ class LessonService {
       query = query.where('language', whereIn: languages);
     }
 
-    return query.snapshots().asyncMap((snapshot) async {
+    return query.orderBy('createdAt', descending: true).snapshots().asyncMap((snapshot) async {
       List<Lesson> lessons = [];
       for (var doc in snapshot.docs) {
         try {
@@ -158,6 +158,95 @@ class LessonService {
           .map((doc) => Lesson.fromMap(doc.data() as Map<String, dynamic>, doc.id))
           .toList();
     });
+  }
+
+  // Get all lessons (renamed to getAllLessons to avoid naming conflict)
+  Stream<List<Lesson>> getAllLessons() {
+    return _firestore
+        .collection('lessons')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => Lesson.fromMap(doc.data(), doc.id)).toList());
+  }
+
+  // Get lessons by IDs
+  Stream<List<Lesson>> getLessonsByIds(List<String> ids) {
+    if (ids.isEmpty) return Stream.value([]);
+    
+    return _firestore
+        .collection('lessons')
+        .where(FieldPath.documentId, whereIn: ids)
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => Lesson.fromMap(doc.data(), doc.id)).toList());
+  }
+
+  // Get lessons by level
+  Stream<List<Lesson>> getLessonsByLevel(String level) {
+    return _firestore
+        .collection('lessons')
+        .where('level', isEqualTo: level)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => Lesson.fromMap(doc.data(), doc.id)).toList());
+  }
+
+  // Get lessons by language
+  Stream<List<Lesson>> getLessonsByLanguage(String language) {
+    return _firestore
+        .collection('lessons')
+        .where('language', isEqualTo: language)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => Lesson.fromMap(doc.data(), doc.id)).toList());
+  }
+
+  // Get lessons by topic
+  Stream<List<Lesson>> getLessonsByTopic(String topic) {
+    return _firestore
+        .collection('lessons')
+        .where('topics', arrayContains: topic)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => Lesson.fromMap(doc.data(), doc.id)).toList());
+  }
+
+  // Search lessons by query
+  Stream<List<Lesson>> searchLessons(String query, {
+    List<String>? languages,
+    Map<String, String>? proficiencyLevels,
+  }) {
+    if (query.trim().isEmpty) {
+      return getLessons(languages: languages, proficiencyLevels: proficiencyLevels);
+    }
+
+    final lowercaseQuery = query.toLowerCase();
+    
+    return _firestore
+        .collection('lessons')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) {
+          return snapshot.docs
+              .map((doc) => Lesson.fromMap(doc.data(), doc.id))
+              .where((lesson) {
+                final title = lesson.title.toLowerCase();
+                final description = lesson.description.toLowerCase();
+                final creatorName = lesson.createdByName.toLowerCase();
+                
+                return title.contains(lowercaseQuery) ||
+                       description.contains(lowercaseQuery) ||
+                       creatorName.contains(lowercaseQuery);
+              })
+              .where((lesson) => languages == null || 
+                               languages.isEmpty || 
+                               languages.contains(lesson.language))
+              .toList();
+        });
   }
 
   // Increment view count

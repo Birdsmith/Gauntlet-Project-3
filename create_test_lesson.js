@@ -19,6 +19,9 @@ const testLesson = {
   createdById: 'PrNgcAnrmZTu1yPdeGdRYGMO7Nr2',
   createdByName: 'Mondly',
   viewCount: 0,
+  likeCount: 0,
+  commentCount: 0,
+  saveCount: 0,
   metadata: {
     hasSubtitles: false,
     practiceExercises: true

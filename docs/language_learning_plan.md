@@ -136,12 +136,12 @@ A TikTok-style mobile application focused on language learning through short-for
 - [ ] Achievement system
 
 #### Content Management
-- [ ] Save functionality
-- [ ] Bookmark interface
+- [x] Save functionality
+- [x] Bookmark interface
 - [ ] Collections/playlists
 - [ ] Offline access
-- [ ] History tracking
-- [ ] Watch history
+- [x] History tracking
+- [x] Watch history
 - [ ] Resume playback
 - [ ] Progress indicators
 - [ ] Basic recommendations
@@ -168,7 +168,7 @@ A TikTok-style mobile application focused on language learning through short-for
 
 #### Content Organization
 - [x] Library structure
-- [ ] Saved lessons view
+- [x] Saved lessons view
 - [ ] Progress tracking
 - [x] Category breakdown
 - [x] Navigation system
@@ -191,7 +191,7 @@ A TikTok-style mobile application focused on language learning through short-for
 - [ ] Battery usage
 
 #### Error Handling
-- [ ] Network issues
+- [x] Network issues
 - [ ] Offline mode
 - [x] Retry mechanisms
 - [ ] Progress recovery
@@ -199,7 +199,7 @@ A TikTok-style mobile application focused on language learning through short-for
 - [x] Loading failures
 - [x] Playback errors
 - [ ] Caption sync issues
-- [ ] User feedback
+- [x] User feedback
 - [x] Error messages
 - [x] Loading states
 - [ ] Success indicators

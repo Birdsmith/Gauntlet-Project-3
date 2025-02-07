@@ -36,7 +36,7 @@ class MyApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      themeMode: ThemeMode.system, // Follow system theme
+      themeMode: ThemeMode.light, // Always use light mode
       initialRoute: '/',
       routes: {
         '/': (context) => const AuthWrapper(),

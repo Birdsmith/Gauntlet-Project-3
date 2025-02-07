@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -40,18 +41,35 @@ class AuthService {
   // Sign in with Google
   Future<UserCredential?> signInWithGoogle() async {
     try {
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) return null;
+      if (kIsWeb) {
+        // Web-specific sign in
+        GoogleAuthProvider authProvider = GoogleAuthProvider();
+        
+        // Add scopes if needed
+        authProvider.addScope('email');
+        authProvider.addScope('profile');
+        
+        // Set custom parameters
+        authProvider.setCustomParameters({
+          'prompt': 'select_account'
+        });
+        
+        return await _auth.signInWithPopup(authProvider);
+      } else {
+        // Mobile sign in
+        final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+        if (googleUser == null) return null;
 
-      final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
+        final GoogleSignInAuthentication googleAuth =
+            await googleUser.authentication;
 
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
+        final credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
 
-      return await _auth.signInWithCredential(credential);
+        return await _auth.signInWithCredential(credential);
+      }
     } catch (e) {
       rethrow;
     }
@@ -59,8 +77,30 @@ class AuthService {
 
   // Sign out
   Future<void> signOut() async {
-    await _googleSignIn.signOut();
-    await _auth.signOut();
+    try {
+      // Get the current user's provider data
+      final providerData = _auth.currentUser?.providerData;
+      final isGoogleUser = providerData?.any((element) => 
+        element.providerId == GoogleAuthProvider.PROVIDER_ID) ?? false;
+
+      // If user signed in with Google, handle Google sign out
+      if (isGoogleUser) {
+        if (!kIsWeb) {
+          try {
+            await _googleSignIn.signOut();
+          } catch (e) {
+            print('Google Sign In sign out error: $e');
+            // Continue with Firebase sign out even if Google sign out fails
+          }
+        }
+      }
+
+      // Always sign out from Firebase
+      await _auth.signOut();
+    } catch (e) {
+      print('Sign out error: $e');
+      rethrow;
+    }
   }
 
   // Password reset

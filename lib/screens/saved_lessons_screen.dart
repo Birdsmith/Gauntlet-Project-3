@@ -8,7 +8,7 @@ import '../services/collection_service.dart';
 import '../widgets/lesson_card.dart';
 
 class SavedLessonsScreen extends StatefulWidget {
-  const SavedLessonsScreen({Key? key}) : super(key: key);
+  const SavedLessonsScreen({super.key});
 
   @override
   State<SavedLessonsScreen> createState() => _SavedLessonsScreenState();
@@ -24,7 +24,7 @@ class _SavedLessonsScreenState extends State<SavedLessonsScreen> with SingleTick
   
   late TabController _tabController;
   List<Lesson> _lessons = [];
-  List<LessonCollection> _collections = [];
+  final List<LessonCollection> _collections = [];
   bool _isLoading = true;
   String? _selectedCollectionId;
 

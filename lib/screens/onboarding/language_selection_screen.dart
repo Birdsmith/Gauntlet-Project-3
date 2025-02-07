@@ -162,25 +162,25 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
     // Add more languages as needed
   };
 
-  final List<Map<String, String>> _languages = [
-    {'code': 'es', 'flag': '🇪🇸'},
-    {'code': 'fr', 'flag': '🇫🇷'},
-    {'code': 'de', 'flag': '🇩🇪'},
-    {'code': 'it', 'flag': '🇮🇹'},
-    {'code': 'pt', 'flag': '🇵🇹'},
-    {'code': 'ja', 'flag': '🇯🇵'},
-    {'code': 'ko', 'flag': '🇰🇷'},
-    {'code': 'zh', 'flag': '🇨🇳'},
-    {'code': 'ru', 'flag': '🇷🇺'},
-    {'code': 'ar', 'flag': '🇸🇦'},
-    {'code': 'hi', 'flag': '🇮🇳'},
-    {'code': 'bn', 'flag': '🇧🇩'},
-    {'code': 'tr', 'flag': '🇹🇷'},
-    {'code': 'vi', 'flag': '🇻🇳'},
-    {'code': 'nl', 'flag': '🇳🇱'},
-    {'code': 'pl', 'flag': '🇵🇱'},
-    {'code': 'th', 'flag': '🇹🇭'},
-    {'code': 'id', 'flag': '🇮🇩'},
+  final List<Map<String, dynamic>> _languages = [
+    {'code': 'es', 'flag': '🇪🇸', 'enabled': true},  // Spanish
+    {'code': 'de', 'flag': '🇩🇪', 'enabled': true},  // German
+    {'code': 'ja', 'flag': '🇯🇵', 'enabled': true},  // Japanese
+    {'code': 'fr', 'flag': '🇫🇷', 'enabled': false}, // French
+    {'code': 'it', 'flag': '🇮🇹', 'enabled': false}, // Italian
+    {'code': 'pt', 'flag': '🇵🇹', 'enabled': false}, // Portuguese
+    {'code': 'ko', 'flag': '🇰🇷', 'enabled': false}, // Korean
+    {'code': 'zh', 'flag': '🇨🇳', 'enabled': false}, // Chinese
+    {'code': 'ru', 'flag': '🇷🇺', 'enabled': false}, // Russian
+    {'code': 'ar', 'flag': '🇸🇦', 'enabled': false}, // Arabic
+    {'code': 'hi', 'flag': '🇮🇳', 'enabled': false}, // Hindi
+    {'code': 'bn', 'flag': '🇧🇩', 'enabled': false}, // Bengali
+    {'code': 'tr', 'flag': '🇹🇷', 'enabled': false}, // Turkish
+    {'code': 'vi', 'flag': '🇻🇳', 'enabled': false}, // Vietnamese
+    {'code': 'nl', 'flag': '🇳🇱', 'enabled': false}, // Dutch
+    {'code': 'pl', 'flag': '🇵🇱', 'enabled': false}, // Polish
+    {'code': 'th', 'flag': '🇹🇭', 'enabled': false}, // Thai
+    {'code': 'id', 'flag': '🇮🇩', 'enabled': false}, // Indonesian
   ];
 
   String _getLanguageName(String languageCode) {
@@ -206,7 +206,7 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Select one or more languages to focus on',
+            'Currently supporting Japanese, German, and Spanish',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   color: Colors.grey[600],
                 ),
@@ -241,9 +241,10 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
               itemBuilder: (context, index) {
                 final language = _languages[index];
                 final isSelected = widget.selectedLanguages.contains(language['code']);
+                final isEnabled = language['enabled'] == true;
 
                 return InkWell(
-                  onTap: () {
+                  onTap: isEnabled ? () {
                     final updatedLanguages = List<String>.from(widget.selectedLanguages);
                     if (isSelected) {
                       updatedLanguages.remove(language['code']);
@@ -251,7 +252,7 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
                       updatedLanguages.add(language['code']!);
                     }
                     widget.onLanguagesSelected(updatedLanguages);
-                  },
+                  } : null,
                   child: Container(
                     decoration: BoxDecoration(
                       border: Border.all(
@@ -263,7 +264,7 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
                       borderRadius: BorderRadius.circular(12),
                       color: isSelected
                           ? Theme.of(context).primaryColor.withAlpha(26)
-                          : null,
+                          : isEnabled ? null : Colors.grey[100],
                     ),
                     child: Stack(
                       children: [
@@ -272,16 +273,29 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
                           children: [
                             Text(
                               language['flag']!,
-                              style: const TextStyle(fontSize: 32),
+                              style: TextStyle(
+                                fontSize: 32,
+                                color: isEnabled ? null : Colors.grey[400],
+                              ),
                             ),
                             const SizedBox(height: 8),
                             Text(
                               _getLanguageName(language['code']!),
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w500,
+                                color: isEnabled ? null : Colors.grey[400],
                               ),
                             ),
+                            if (!isEnabled)
+                              Text(
+                                'Coming Soon',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[500],
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
                           ],
                         ),
                         if (isSelected)

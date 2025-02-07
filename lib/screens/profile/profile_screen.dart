@@ -85,16 +85,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _signOut() async {
+    if (_isLoading) return; // Prevent multiple sign-out attempts
+
+    setState(() => _isLoading = true);
+    
     try {
-      await _authService.signOut();
+      // Clear any existing snackbars before showing the new one
       if (mounted) {
-        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Signing out...'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+
+      await _authService.signOut();
+      
+      if (mounted) {
+        // Clear any existing snackbars
+        ScaffoldMessenger.of(context).clearSnackBars();
+        
+        // Use pushNamedAndRemoveUntil to clear the navigation stack
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/',
+          (route) => false,
+        );
       }
     } catch (e) {
       if (mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error signing out: $e')),
+          SnackBar(
+            content: Text('Error signing out: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
         );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
       }
     }
   }

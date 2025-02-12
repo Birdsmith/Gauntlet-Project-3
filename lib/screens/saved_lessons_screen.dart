@@ -6,6 +6,7 @@ import '../services/interaction_service.dart';
 import '../services/lesson_service.dart';
 import '../services/collection_service.dart';
 import '../widgets/lesson_card.dart';
+import 'learning_mode_screen.dart';
 
 class SavedLessonsScreen extends StatefulWidget {
   const SavedLessonsScreen({super.key});
@@ -177,6 +178,83 @@ class _SavedLessonsScreenState extends State<SavedLessonsScreen> with SingleTick
     );
   }
 
+  Future<void> _editCollection(LessonCollection collection) async {
+    final TextEditingController nameController = TextEditingController(text: collection.name);
+    final TextEditingController descriptionController = TextEditingController(text: collection.description);
+
+    await showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Edit Collection'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Collection Name',
+                    hintText: 'Enter collection name',
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: descriptionController,
+                  decoration: const InputDecoration(
+                    labelText: 'Description',
+                    hintText: 'Enter collection description',
+                  ),
+                  maxLines: 2,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('CANCEL'),
+            ),
+            TextButton(
+              onPressed: () async {
+                if (nameController.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Collection name cannot be empty')),
+                  );
+                  return;
+                }
+
+                try {
+                  await _collectionService.updateCollection(
+                    collection.id,
+                    name: nameController.text.trim(),
+                    description: descriptionController.text.trim(),
+                  );
+                  if (mounted) {
+                    Navigator.of(context).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Collection updated successfully')),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error updating collection: ${e.toString()}'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              },
+              child: const Text('SAVE'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildCollectionGrid() {
     return StreamBuilder<List<LessonCollection>>(
       stream: _collectionService.getUserCollections(),
@@ -239,45 +317,66 @@ class _SavedLessonsScreenState extends State<SavedLessonsScreen> with SingleTick
                 onTap: () {
                   setState(() {
                     _selectedCollectionId = collection.id;
-                    _loadSavedLessons(); // Reload lessons for the selected collection
+                    _loadSavedLessons();
                   });
-                  _tabController.animateTo(0); // Switch to lessons tab
                 },
-                child: Stack(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          if (collection.emoji != null) ...[
+                    if (collection.emoji != null)
                             Text(
                               collection.emoji!,
                               style: const TextStyle(fontSize: 32),
-                            ),
+                      )
+                    else
+                      const Icon(Icons.folder, size: 32),
                             const SizedBox(height: 8),
-                          ],
                           Text(
                             collection.name,
                             style: Theme.of(context).textTheme.titleMedium,
                             textAlign: TextAlign.center,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(height: 4),
                           Text(
                             '${collection.lessonCount} lessons',
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
-                        ],
+                    const SizedBox(height: 8),
+                    Tooltip(
+                      message: collection.lessonCount == 0 
+                        ? 'Add lessons to the collection to start learning'
+                        : 'Start learning session',
+                      child: ElevatedButton.icon(
+                        onPressed: collection.lessonCount > 0 
+                          ? () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => LearningModeScreen(
+                                    collection: collection,
+                                  ),
+                                ),
+                              );
+                            }
+                          : null, // This will grey out the button when disabled
+                        icon: const Icon(Icons.school),
+                        label: const Text('Learn'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Theme.of(context).primaryColor,
+                          foregroundColor: Colors.white,
+                          disabledBackgroundColor: Colors.grey[300],
+                          disabledForegroundColor: Colors.grey[600],
+                        ),
                       ),
                     ),
-                    Positioned(
-                      top: 4,
-                      right: 4,
-                      child: IconButton(
-                        icon: const Icon(Icons.delete_outline),
-                        onPressed: () async {
+                    PopupMenuButton(
+                      icon: const Icon(Icons.more_vert),
+                      itemBuilder: (context) => [
+                        PopupMenuItem(
+                          child: const Text('Edit'),
+                          onTap: () => _editCollection(collection),
+                        ),
+                        PopupMenuItem(
+                          child: const Text('Delete'),
+                          onTap: () async {
                           final confirmed = await showDialog<bool>(
                             context: context,
                             builder: (context) => AlertDialog(
@@ -323,6 +422,7 @@ class _SavedLessonsScreenState extends State<SavedLessonsScreen> with SingleTick
                           }
                         },
                       ),
+                      ],
                     ),
                   ],
                 ),

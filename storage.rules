@@ -2,15 +2,42 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    // Allow authenticated users to read videos
-    match /videos/{videoId}/{fileName} {
-      allow read: if request.auth != null;
-      allow write: if false; // Only allow admin uploads through console
+    // Helper function to check if request is from a service account
+    function isServiceAccount() {
+      return request.auth.token.firebase.sign_in_provider == "google.com" 
+        && (request.auth.token.email.matches(".*@.*\\.iam\\.gserviceaccount\\.com$")
+        || request.auth.token.email == "google-cloud-speech-to-text@gauntlet-project-3.iam.gserviceaccount.com");
     }
 
-    // Default rule - deny everything else
+    // Allow public read access to all files
     match /{allPaths=**} {
-      allow read, write: if false;
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Rules for video files and their associated content
+    match /videos/{videoId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null && (
+        // Allow service accounts to write any files
+        isServiceAccount() ||
+        // Allow authenticated users to write audio files
+        (request.resource.contentType.matches('audio/.*') && request.auth != null) ||
+        // Allow authenticated users to write subtitle files
+        (request.resource.contentType == 'text/vtt' && request.auth != null)
+      );
+    }
+
+    match /subtitles/{subtitleId} {
+      allow read: if true;
+      allow write: if isServiceAccount();
+    }
+
+    // Allow authenticated users to write audio files
+    match /lessons/{lessonId}/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null 
+                   && (fileName == 'audio.flac' || fileName.matches('.*\\.flac'));
     }
   }
 } 

@@ -24,6 +24,7 @@
   },
   "homepage": "https://github.com/Birdsmith/Gauntlet-Project-3#readme",
   "dependencies": {
+    "firebase": "^11.3.0",
     "firebase-admin": "^13.0.2"
   }
 }

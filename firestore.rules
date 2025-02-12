@@ -46,6 +46,16 @@ service cloud.firestore {
         (collection.updatedAt is timestamp || collection.updatedAt == request.time);
     }
 
+    function isValidLearningSession() {
+      let session = request.resource.data;
+      return 
+        session.collectionId is string &&
+        session.startedAt is timestamp &&
+        session.remainingLessonIds is list &&
+        session.masteredLessonIds is list &&
+        session.isCompleted is bool;
+    }
+
     function isCounterUpdate() {
       let currentData = resource.data;
       let newData = request.resource.data;
@@ -93,13 +103,24 @@ service cloud.firestore {
         allow update: if isAuthenticated() && isOwner(userId);
         allow delete: if isAuthenticated() && isOwner(userId);
       }
+
+      // Learning sessions subcollection
+      match /learning_sessions/{sessionId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidLearningSession();
+        allow update: if isOwner(userId);
+        allow delete: if isOwner(userId);
+      }
     }
 
     // Lessons collection
     match /lessons/{lessonId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && isValidLesson();
-      allow update: if isAuthenticated() && isCounterUpdate(); // Allow counter updates
+      allow update: if isAuthenticated() && (
+        isCounterUpdate() || 
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rawVideoUrl', 'audioUrl', 'rawAudioUrl', 'transcription']))
+      );
       allow delete: if false; // Only admins can delete lessons
 
       // Comments subcollection
@@ -108,6 +129,11 @@ service cloud.firestore {
         allow create: if isAuthenticated() && isValidComment();
         allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
       }
+    }
+
+    // Default rule - deny everything else
+    match /{allPaths=**} {
+      allow read, write: if false;
     }
   }
 } 

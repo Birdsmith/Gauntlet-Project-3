@@ -1,16 +1,56 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter/material.dart';
 import 'firebase_options.dart';
 import 'screens/auth/auth_wrapper.dart';
 import 'screens/home/home_screen.dart';
+import 'services/background_service.dart';
+import 'dart:math';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize Firebase
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  try {
+    print('Initializing Firebase Core...');
+    // Initialize Firebase
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    print('Firebase Core initialized successfully');
+
+    print('Initializing Firebase App Check...');
+    try {
+      // Initialize App Check with debug provider during development
+      await FirebaseAppCheck.instance.activate(
+        androidProvider: AndroidProvider.debug,
+        appleProvider: AppleProvider.appAttest,
+      );
+      print('App Check activation completed');
+      
+      // Try to get token once, use placeholder if it fails
+      try {
+        final token = await FirebaseAppCheck.instance.getToken();
+        if (token != null) {
+          print('App Check token obtained successfully');
+        } else {
+          print('No App Check token received, using placeholder');
+        }
+      } catch (tokenError) {
+        print('Error getting App Check token, using placeholder: $tokenError');
+      }
+      
+    } catch (e) {
+      print('Error activating App Check: $e');
+    }
+
+    // Initialize background service
+    await BackgroundService.initializeService();
+    
+  } catch (e, stackTrace) {
+    print('Critical error during initialization:');
+    print('Error: $e');
+    print('Stack trace: $stackTrace');
+  }
   
   runApp(const MyApp());
 }

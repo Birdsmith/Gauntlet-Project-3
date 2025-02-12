@@ -3,6 +3,7 @@ const serviceAccount = require("./service-account.json");
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
+  storageBucket: "gauntlet-project-3.firebasestorage.app"
 });
 
 async function callFunction() {

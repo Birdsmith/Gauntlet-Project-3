@@ -58,6 +58,14 @@ firebase_options.dart
 **/*.jks
 .env
 .env.*
+cloud-to-text-key.json
+**/*-key.json
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+**/*.cer
+**/*.crt
 
 # Firebase service account
 serviceAccountKey.json

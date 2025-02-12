@@ -169,6 +169,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.3"
+  ffmpeg_kit_flutter_full:
+    dependency: "direct main"
+    description:
+      name: ffmpeg_kit_flutter_full
+      sha256: c845c1bcf40a8869eab9e401526c6cf3fc8091d04c0a7ec9a0af854d6c7e354a
+      url: "https://pub.dev"
+    source: hosted
+    version: "6.0.3"
+  ffmpeg_kit_flutter_platform_interface:
+    dependency: transitive
+    description:
+      name: ffmpeg_kit_flutter_platform_interface
+      sha256: addf046ae44e190ad0101b2fde2ad909a3cd08a2a109f6106d2f7048b7abedee
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.1"
   file:
     dependency: transitive
     description:
@@ -177,6 +193,30 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "7.0.1"
+  firebase_app_check:
+    dependency: "direct main"
+    description:
+      name: firebase_app_check
+      sha256: "4089ab1346844b548ca1111f958d29f1fa74a7dfb838db801a53545eed0a2b3d"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.3.2+2"
+  firebase_app_check_platform_interface:
+    dependency: transitive
+    description:
+      name: firebase_app_check_platform_interface
+      sha256: "8f537884db880c77da26eda55085cab65f5df762e2c17ff10c164ed28f7f994f"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.1+2"
+  firebase_app_check_web:
+    dependency: transitive
+    description:
+      name: firebase_app_check_web
+      sha256: dd2791148c6fa04095b3b2a203afb6a6382912becb02288febe9335b1c4104dc
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.0+6"
   firebase_auth:
     dependency: "direct main"
     description:
@@ -262,6 +302,38 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  flutter_background_service:
+    dependency: "direct main"
+    description:
+      name: flutter_background_service
+      sha256: "70a1c185b1fa1a44f8f14ecd6c86f6e50366e3562f00b2fa5a54df39b3324d3d"
+      url: "https://pub.dev"
+    source: hosted
+    version: "5.1.0"
+  flutter_background_service_android:
+    dependency: "direct main"
+    description:
+      name: flutter_background_service_android
+      sha256: b73d903056240e23a5c56d9e52d3a5d02ae41cb18b2988a97304ae37b2bae4bf
+      url: "https://pub.dev"
+    source: hosted
+    version: "6.3.0"
+  flutter_background_service_ios:
+    dependency: transitive
+    description:
+      name: flutter_background_service_ios
+      sha256: "6037ffd45c4d019dab0975c7feb1d31012dd697e25edc05505a4a9b0c7dc9fba"
+      url: "https://pub.dev"
+    source: hosted
+    version: "5.0.3"
+  flutter_background_service_platform_interface:
+    dependency: transitive
+    description:
+      name: flutter_background_service_platform_interface
+      sha256: ca74aa95789a8304f4d3f57f07ba404faa86bed6e415f83e8edea6ad8b904a41
+      url: "https://pub.dev"
+    source: hosted
+    version: "5.1.2"
   flutter_lints:
     dependency: "direct dev"
     description:
@@ -270,6 +342,30 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "5.0.0"
+  flutter_local_notifications:
+    dependency: "direct main"
+    description:
+      name: flutter_local_notifications
+      sha256: "401643a6ea9d8451365f2ec11145335bf130560cfde367bdf8f0be6d60f89479"
+      url: "https://pub.dev"
+    source: hosted
+    version: "15.1.3"
+  flutter_local_notifications_linux:
+    dependency: transitive
+    description:
+      name: flutter_local_notifications_linux
+      sha256: c49bd06165cad9beeb79090b18cd1eb0296f4bf4b23b84426e37dd7c027fc3af
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.0.1"
+  flutter_local_notifications_platform_interface:
+    dependency: transitive
+    description:
+      name: flutter_local_notifications_platform_interface
+      sha256: "85f8d07fe708c1bdcf45037f2c0109753b26ae077e9d9e899d55971711a4ea66"
+      url: "https://pub.dev"
+    source: hosted
+    version: "7.2.0"
   flutter_test:
     dependency: "direct dev"
     description: flutter
@@ -613,6 +709,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.7.3"
+  timezone:
+    dependency: transitive
+    description:
+      name: timezone
+      sha256: "2236ec079a174ce07434e89fcd3fcda430025eb7692244139a9cf54fdcf1fc7d"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.9.4"
   typed_data:
     dependency: transitive
     description:

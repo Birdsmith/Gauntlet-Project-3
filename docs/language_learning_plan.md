@@ -15,7 +15,7 @@ A TikTok-style mobile application focused on language learning through short-for
 2. "As a language learner, I want to browse a feed of language lessons filtered by my selected language/level"
 3. "As a language learner, I want to watch lessons with captions to aid my understanding"
 4. "As a language learner, I want to save lessons to watch later"
-5. "As a language learner, I want to be abel to organize lessons I've saved so they can be"
+5. "As a language learner, I want to be able to organize lessons I've saved so they can be easily found again"
 6. "As a language learner, I want to adjust video playback speed to match my comprehension level"
 
 ## Technical Architecture

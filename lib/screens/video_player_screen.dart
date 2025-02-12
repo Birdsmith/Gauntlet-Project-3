@@ -7,7 +7,12 @@ import 'dart:developer' as developer;
 import '../services/interaction_service.dart';
 import '../services/storage_service.dart';
 import '../services/subtitle_service.dart';
+import '../services/transcription_service.dart';
 import '../widgets/lesson_interaction_buttons.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/user_service.dart';
+import '../services/audio_extraction_service.dart';
+import 'dart:io';
 
 class VideoPlayerScreen extends StatefulWidget {
   final Lesson lesson;
@@ -25,30 +30,55 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   late VideoPlayerController _videoPlayerController;
   ChewieController? _chewieController;
   bool _isLoading = true;
+  bool _isTranscribing = false;
   String? _errorMessage;
   String? _selectedSubtitleLanguage;
   final InteractionService _interactionService = InteractionService();
   final StorageService _storageService = StorageService();
   final SubtitleService _subtitleService = SubtitleService();
+  final TranscriptionService _transcriptionService = TranscriptionService();
+  final UserService _userService = UserService();
+  final AudioExtractionService _audioExtractor = AudioExtractionService();
   List<String> _availableSubtitleLanguages = [];
   List<Subtitle> _currentSubtitles = [];
+  String? _userNativeLanguage;
 
   @override
   void initState() {
     super.initState();
     _initializePlayer();
+    _loadUserProfile();
     _loadSubtitleLanguages();
+  }
+
+  Future<void> _loadUserProfile() async {
+    try {
+      final userProfile = await _userService.getUserProfile();
+      if (mounted && userProfile != null) {
+        setState(() {
+          _userNativeLanguage = userProfile.nativeLanguage;
+        });
+      }
+    } catch (e) {
+      developer.log('Error loading user profile: $e');
+    }
   }
 
   Future<void> _loadSubtitleLanguages() async {
     try {
       final languages = await _storageService.listSubtitleLanguages(widget.lesson.id);
       if (mounted) {
+        // Filter languages to only include user's native language and video language
+        final filteredLanguages = languages.where((lang) => 
+          (_userNativeLanguage != null && lang == _userNativeLanguage) || 
+          lang == widget.lesson.language
+        ).toList();
+        
         setState(() {
-          _availableSubtitleLanguages = languages;
+          _availableSubtitleLanguages = filteredLanguages;
           // Set default subtitle language if available
           if (widget.lesson.defaultSubtitleLanguage != null &&
-              languages.contains(widget.lesson.defaultSubtitleLanguage)) {
+              filteredLanguages.contains(widget.lesson.defaultSubtitleLanguage)) {
             _selectedSubtitleLanguage = widget.lesson.defaultSubtitleLanguage;
           }
         });
@@ -62,43 +92,87 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   Future<void> _updateSubtitles(String languageCode) async {
+    if (_isTranscribing) return;
+    
+    setState(() => _isTranscribing = true);
     try {
       if (_chewieController == null) return;
 
-      final subtitleUrl = await _storageService.getSubtitleUrl(widget.lesson.id, languageCode);
-      final subtitles = await _subtitleService.loadSubtitlesFromUrl(subtitleUrl);
+      // First try to get existing subtitle URL
+      String? subtitleUrl;
+      try {
+        subtitleUrl = await _storageService.getSubtitleUrl(widget.lesson.id, languageCode);
+      } catch (e) {
+        developer.log('Subtitle file not found, will generate: $e');
+      }
 
-      if (mounted) {
-        setState(() {
-          _selectedSubtitleLanguage = languageCode;
-          _currentSubtitles = subtitles;
-          _chewieController = ChewieController(
-            videoPlayerController: _videoPlayerController,
-            autoPlay: _chewieController!.isPlaying,
-            looping: _chewieController!.looping,
-            aspectRatio: _videoPlayerController.value.aspectRatio,
-            allowPlaybackSpeedChanging: true,
-            playbackSpeeds: const [0.5, 0.75, 1, 1.25, 1.5, 2],
-            subtitle: Subtitles(_currentSubtitles),
-            subtitleBuilder: (context, subtitle) => Container(
-              padding: const EdgeInsets.all(10.0),
-              child: subtitle.text.isNotEmpty
-                  ? Container(
-                      padding: const EdgeInsets.all(8.0),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.8),
-                        borderRadius: BorderRadius.circular(4.0),
-                      ),
-                      child: Text(
-                        subtitle.text,
-                        style: const TextStyle(color: Colors.white),
-                        textAlign: TextAlign.center,
-                      ),
-                    )
-                  : const SizedBox.shrink(),
-            ),
-          );
-        });
+      if (subtitleUrl != null) {
+        // VTT exists, load it directly
+        final subtitles = await _subtitleService.loadSubtitlesFromUrl(subtitleUrl);
+        _updateSubtitleDisplay(languageCode, subtitles);
+        return;
+      }
+
+      // VTT doesn't exist, check if we already have the audio file
+      final lessonDoc = await FirebaseFirestore.instance
+          .collection('lessons')
+          .doc(widget.lesson.id)
+          .get();
+      
+      if (!lessonDoc.exists) {
+        throw Exception('Lesson document not found');
+      }
+      
+      final lessonData = lessonDoc.data();
+      if (lessonData == null) {
+        throw Exception('Lesson data is null');
+      }
+      
+      final existingAudioUrl = lessonData['audioUrl'] as String?;
+      final existingRawAudioUrl = lessonData['rawAudioUrl'] as String?;
+
+      String? audioPath;
+      try {
+        if (existingRawAudioUrl == null) {
+          // No audio file, need to extract it first
+          audioPath = await _audioExtractor.extractAudioFromVideo(widget.lesson.videoUrl, widget.lesson.id);
+          if (audioPath == null) {
+            throw Exception('Failed to extract audio from video');
+          }
+
+          // Upload audio file
+          final audioUrls = await _audioExtractor.uploadAudioFile(audioPath, widget.lesson.id);
+          if (audioUrls == null) {
+            throw Exception('Failed to upload audio file');
+          }
+
+          // Update lesson document with audio URLs
+          await FirebaseFirestore.instance
+              .collection('lessons')
+              .doc(widget.lesson.id)
+              .update({
+            'audioUrl': audioUrls['downloadUrl'],
+            'rawAudioUrl': audioUrls['gcsUri'],
+          });
+        }
+
+        // Now call the transcription service
+        final result = await _transcriptionService.transcribeVideo(widget.lesson.id);
+        developer.log('Transcription result: $result');
+
+        // After transcription, try to get the subtitle URL again
+        subtitleUrl = await _storageService.getSubtitleUrl(widget.lesson.id, languageCode);
+        final subtitles = await _subtitleService.loadSubtitlesFromUrl(subtitleUrl);
+        _updateSubtitleDisplay(languageCode, subtitles);
+      } finally {
+        // Clean up temporary audio file if it was created
+        if (audioPath != null) {
+          try {
+            await File(audioPath).delete();
+          } catch (e) {
+            developer.log('Error cleaning up temporary audio file: $e');
+          }
+        }
       }
     } catch (e) {
       developer.log('Error updating subtitles: $e');
@@ -110,24 +184,75 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           ),
         );
       }
+      rethrow;
+    } finally {
+      if (mounted) {
+        setState(() => _isTranscribing = false);
+      }
     }
+  }
+
+  void _updateSubtitleDisplay(String languageCode, List<Subtitle> subtitles) {
+    if (!mounted) return;
+    setState(() {
+      _selectedSubtitleLanguage = languageCode;
+      _currentSubtitles = subtitles;
+      _chewieController = ChewieController(
+        videoPlayerController: _videoPlayerController,
+        autoPlay: _chewieController!.isPlaying,
+        looping: _chewieController!.looping,
+        aspectRatio: _videoPlayerController.value.aspectRatio,
+        allowPlaybackSpeedChanging: true,
+        playbackSpeeds: const [0.5, 0.75, 1, 1.25, 1.5, 2],
+        subtitle: Subtitles(subtitles),
+        subtitleBuilder: (context, subtitle) => Container(
+          padding: const EdgeInsets.all(10.0),
+          child: subtitle.text.isNotEmpty
+              ? Container(
+                  padding: const EdgeInsets.all(8.0),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.8),
+                    borderRadius: BorderRadius.circular(4.0),
+                  ),
+                  child: Text(
+                    subtitle.text,
+                    style: const TextStyle(color: Colors.white),
+                    textAlign: TextAlign.center,
+                  ),
+                )
+              : const SizedBox.shrink(),
+        ),
+      );
+    });
   }
 
   Future<void> _initializePlayer() async {
     try {
       developer.log('Starting video initialization for: ${widget.lesson.videoUrl}');
       
-      // Convert gs:// URL to https:// download URL
-      final storageRef = FirebaseStorage.instance.refFromURL(widget.lesson.videoUrl);
-      developer.log('Getting download URL...');
-      final downloadUrl = await storageRef.getDownloadURL();
-      developer.log('Download URL obtained: $downloadUrl');
+      String videoUrl = widget.lesson.videoUrl;
+      
+      // If we have a gs:// URL, convert it to an HTTPS URL
+      if (videoUrl.startsWith('gs://')) {
+        final storageRef = FirebaseStorage.instance.refFromURL(videoUrl);
+        developer.log('Getting download URL...');
+        videoUrl = await storageRef.getDownloadURL();
+        developer.log('Download URL obtained: $videoUrl');
+      }
       
       _videoPlayerController = VideoPlayerController.networkUrl(
-        Uri.parse(downloadUrl),
+        Uri.parse(videoUrl),
       );
       developer.log('Initializing video player...');
-      await _videoPlayerController.initialize();
+      
+      try {
+        await _videoPlayerController.initialize();
+      } catch (initError) {
+        developer.log('Video player initialization failed', error: initError);
+        _videoPlayerController.dispose();
+        throw Exception('Failed to initialize video player: $initError');
+      }
+      
       developer.log('Video player initialized');
       
       _chewieController = ChewieController(
@@ -201,12 +326,32 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     }
   }
 
+  Future<void> _generateSubtitles() async {
+    if (_isTranscribing) return;
+    // Use the video's language by default for transcription
+    await _updateSubtitles(widget.lesson.language);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.lesson.title),
         actions: [
+          IconButton(
+            icon: _isTranscribing 
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                )
+              : const Icon(Icons.closed_caption),
+            tooltip: 'Generate Subtitles',
+            onPressed: _isTranscribing ? null : _generateSubtitles,
+          ),
           if (_availableSubtitleLanguages.isNotEmpty)
             PopupMenuButton<String>(
               icon: const Icon(Icons.subtitles),
@@ -237,11 +382,19 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   child: Text('Off'),
                 ),
                 ...(_availableSubtitleLanguages.map((languageCode) {
+                  final isNative = languageCode == _userNativeLanguage;
+                  final isVideoLanguage = languageCode == widget.lesson.language;
+                  String label = languageCode.toUpperCase();
+                  if (isNative) {
+                    label += ' (Native)';
+                  } else if (isVideoLanguage) {
+                    label += ' (Video)';
+                  }
                   return PopupMenuItem<String>(
                     value: languageCode,
                     child: Row(
                       children: [
-                        Text(languageCode),
+                        Text(label),
                         if (languageCode == _selectedSubtitleLanguage)
                           const Icon(Icons.check, size: 18),
                       ],

@@ -5,6 +5,7 @@ class Lesson {
   final String title;
   final String description;
   final String videoUrl;
+  final String? rawVideoUrl;  // Original gs:// URL for Cloud functions
   final String level;
   final double duration;
   final String language;
@@ -25,6 +26,7 @@ class Lesson {
     required this.title,
     required this.description,
     required this.videoUrl,
+    this.rawVideoUrl,
     required this.level,
     required this.duration,
     required this.language,
@@ -48,6 +50,7 @@ class Lesson {
       title: map['title'] ?? '',
       description: map['description'] ?? '',
       videoUrl: map['videoUrl'] ?? '',
+      rawVideoUrl: map['rawVideoUrl'],
       level: map['level'] ?? 'A1',
       duration: (map['duration'] ?? 0).toDouble(),
       language: map['language'] ?? '',
@@ -73,6 +76,7 @@ class Lesson {
       'title': title,
       'description': description,
       'videoUrl': videoUrl,
+      'rawVideoUrl': rawVideoUrl,
       'level': level,
       'duration': duration,
       'language': language,
@@ -95,6 +99,7 @@ class Lesson {
     String? title,
     String? description,
     String? videoUrl,
+    String? rawVideoUrl,
     String? level,
     double? duration,
     String? language,
@@ -115,6 +120,7 @@ class Lesson {
       title: title ?? this.title,
       description: description ?? this.description,
       videoUrl: videoUrl ?? this.videoUrl,
+      rawVideoUrl: rawVideoUrl ?? this.rawVideoUrl,
       level: level ?? this.level,
       duration: duration ?? this.duration,
       language: language ?? this.language,

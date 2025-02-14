@@ -1,5 +1,21 @@
-import 'package:chewie/chewie.dart';
 import 'package:http/http.dart' as http;
+import 'dart:developer' as developer;
+import 'package:flutter/foundation.dart';
+import 'dart:convert';
+
+class Subtitle {
+  final int index;
+  final Duration start;
+  final Duration end;
+  final String text;
+
+  Subtitle({
+    required this.index,
+    required this.start,
+    required this.end,
+    required this.text,
+  });
+}
 
 class SubtitleService {
   // Parse WebVTT content into a list of Subtitle objects
@@ -10,7 +26,9 @@ class SubtitleService {
     int index = 0;
     int currentLine = 0;
     
-    // Skip WebVTT header
+    developer.log('Parsing WebVTT content with ${lines.length} lines');
+    
+    // Skip WebVTT header and metadata
     while (currentLine < lines.length && !lines[currentLine].contains('-->')) {
       currentLine++;
     }
@@ -26,6 +44,7 @@ class SubtitleService {
         
         // Parse timestamp line
         final String timestampLine = lines[currentLine];
+        developer.log('Processing timestamp line: $timestampLine');
         final List<String> timestamps = timestampLine.split('-->');
         if (timestamps.length != 2) {
           currentLine++;
@@ -34,6 +53,7 @@ class SubtitleService {
         
         final Duration start = _parseTimestamp(timestamps[0].trim());
         final Duration end = _parseTimestamp(timestamps[1].trim());
+        developer.log('Parsed timestamps - Start: $start, End: $end');
         
         currentLine++;
         
@@ -43,11 +63,15 @@ class SubtitleService {
                lines[currentLine].trim().isNotEmpty && 
                !lines[currentLine].contains('-->')) {
           if (text.isNotEmpty) text += '\n';
-          text += lines[currentLine].trim();
+          final line = lines[currentLine].trim();
+          // Log each subtitle line for debugging
+          developer.log('Subtitle line: $line (length: ${line.length}, codeUnits: ${line.codeUnits})');
+          text += line;
           currentLine++;
         }
         
         if (text.isNotEmpty) {
+          developer.log('Adding subtitle - Index: $index, Text: $text');
           subtitles.add(Subtitle(
             index: index++,
             start: start,
@@ -56,6 +80,7 @@ class SubtitleService {
           ));
         }
       } catch (e) {
+        developer.log('Error parsing subtitle entry: $e');
         // Skip malformed entries
         while (currentLine < lines.length && !lines[currentLine].contains('-->')) {
           currentLine++;
@@ -63,48 +88,92 @@ class SubtitleService {
       }
     }
     
+    developer.log('Finished parsing WebVTT. Found ${subtitles.length} subtitles');
     return subtitles;
   }
   
   // Parse WebVTT timestamp into Duration
   Duration _parseTimestamp(String timestamp) {
-    // Handle both HH:MM:SS.mmm and MM:SS.mmm formats
-    final parts = timestamp.split(':');
-    if (parts.length < 2 || parts.length > 3) {
-      throw FormatException('Invalid timestamp format: $timestamp');
+    developer.log('Parsing timestamp: $timestamp');
+    try {
+      final parts = timestamp.split(':');
+      if (parts.length != 3) {
+        throw FormatException('Invalid timestamp format: expected HH:MM:SS.mmm, got $timestamp');
+      }
+      
+      final hours = int.tryParse(parts[0]);
+      final minutes = int.tryParse(parts[1]);
+      if (hours == null || minutes == null || minutes >= 60) {
+        throw FormatException('Invalid hours/minutes in timestamp: $timestamp');
+      }
+      
+      final secondsAndMillis = parts[2].split('.');
+      if (secondsAndMillis.isEmpty || secondsAndMillis.length > 2) {
+        throw FormatException('Invalid seconds format in timestamp: $timestamp');
+      }
+      
+      final seconds = int.tryParse(secondsAndMillis[0]);
+      if (seconds == null || seconds >= 60) {
+        throw FormatException('Invalid seconds in timestamp: $timestamp');
+      }
+      
+      final milliseconds = secondsAndMillis.length > 1 
+          ? int.tryParse(secondsAndMillis[1].padRight(3, '0').substring(0, 3))
+          : 0;
+      
+      if (milliseconds == null || milliseconds >= 1000) {
+        throw FormatException('Invalid milliseconds in timestamp: $timestamp');
+      }
+      
+      final duration = Duration(
+        hours: hours,
+        minutes: minutes,
+        seconds: seconds,
+        milliseconds: milliseconds,
+      );
+      developer.log('Parsed timestamp $timestamp to duration: $duration');
+      return duration;
+    } catch (e) {
+      developer.log('Error parsing timestamp: $e');
+      rethrow;
     }
-    
-    int hours = 0;
-    int minutes = 0;
-    double seconds = 0;
-    
-    if (parts.length == 3) {
-      hours = int.parse(parts[0]);
-      minutes = int.parse(parts[1]);
-      seconds = double.parse(parts[2]);
-    } else {
-      minutes = int.parse(parts[0]);
-      seconds = double.parse(parts[1]);
-    }
-    
-    return Duration(
-      hours: hours,
-      minutes: minutes,
-      milliseconds: (seconds * 1000).round(),
-    );
   }
-  
+
   // Load subtitles from a URL
   Future<List<Subtitle>> loadSubtitlesFromUrl(String url) async {
     try {
       final response = await http.get(Uri.parse(url));
-      if (response.statusCode == 200) {
-        return parseWebVTT(response.body);
-      } else {
-        throw Exception('Failed to load subtitles: ${response.statusCode}');
+      if (response.statusCode != 200) {
+        throw Exception('Failed to load subtitles: HTTP ${response.statusCode}');
       }
+      
+      if (response.body.isEmpty) {
+        throw Exception('Empty subtitle file received');
+      }
+
+      // Check for UTF-8 BOM and remove if present
+      List<int> bytes = response.bodyBytes;
+      if (bytes.length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF) {
+        bytes = bytes.sublist(3);
+      }
+      
+      // Decode as UTF-8
+      String content = const Utf8Decoder().convert(bytes);
+      
+      // Log the first few lines for debugging
+      developer.log('First 200 characters of subtitle content: ${content.substring(0, content.length > 200 ? 200 : content.length)}');
+      
+      if (!content.trim().startsWith('WEBVTT')) {
+        throw FormatException('Invalid WebVTT file: missing WEBVTT header');
+      }
+
+      // Clean any invalid UTF-8 sequences
+      content = content.replaceAll(RegExp(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]'), '');
+      
+      return parseWebVTT(content);
     } catch (e) {
-      throw Exception('Failed to load subtitles: $e');
+      developer.log('Error loading subtitles from URL: $url', error: e);
+      throw Exception('Error loading subtitles: $e');
     }
   }
 } 

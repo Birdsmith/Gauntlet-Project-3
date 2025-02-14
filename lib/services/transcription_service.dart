@@ -1,79 +1,61 @@
 import 'package:cloud_functions/cloud_functions.dart';
-import 'package:firebase_storage/firebase_storage.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:developer' as developer;
-import 'audio_extraction_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class TranscriptionService {
   final FirebaseFunctions _functions = FirebaseFunctions.instance;
-  final FirebaseStorage _storage = FirebaseStorage.instance;
-  final AudioExtractionService _audioExtractor = AudioExtractionService();
 
-  /// Start transcription of a video
-  Future<Map<String, dynamic>> transcribeVideo(String lessonId) async {
+  /// Start transcription/translation of a video
+  /// If targetLanguage is specified, translates to that language
+  /// If not specified, transcribes in the original language
+  Future<Map<String, dynamic>> transcribeVideo(
+    DocumentReference lessonRef,
+    String? targetLanguage,
+  ) async {
     try {
-      print('DEBUG: Starting transcription');
-      
-      // Get the lesson document to get the video URL
-      final lessonDoc = await FirebaseFirestore.instance
-          .collection('lessons')
-          .doc(lessonId)
-          .get();
-      
-      if (!lessonDoc.exists) {
-        throw Exception('Lesson not found');
-      }
+      developer.log('Starting transcription/translation to ${targetLanguage ?? 'original language'}');
 
-      final lessonData = lessonDoc.data();
-      final videoUrl = lessonData?['videoUrl'];
-
-      print('DEBUG: Video URL: $videoUrl');
-
-      // Extract audio from video
-      final audioPath = await _audioExtractor.extractAudioFromVideo(videoUrl, lessonId);
-      if (audioPath == null) {
-        throw Exception('Failed to extract audio from video');
-      }
-
-      // Upload audio file to Firebase Storage
-      final audioUrls = await _audioExtractor.uploadAudioFile(audioPath, lessonId);
-      if (audioUrls == null) {
-        throw Exception('Failed to upload audio file');
-      }
-
-      // Update lesson document with audio URLs
-      await FirebaseFirestore.instance
-          .collection('lessons')
-          .doc(lessonId)
-          .update({
-        'audioUrl': audioUrls['downloadUrl'],
-        'rawAudioUrl': audioUrls['gcsUri'],
-        'transcription': {
-          'status': 'processing',
-          'updatedAt': FieldValue.serverTimestamp(),
-        }
-      });
-
-      // Call the Cloud Function with the GCS URI
+      // Call the Cloud Function with the lesson reference path and target language
       final callable = _functions.httpsCallable('transcribeVideo');
       final result = await callable.call({
-        'videoId': lessonId,
-        'audioUrl': audioUrls['gcsUri'],
+        'lessonPath': lessonRef.path,
+        'targetLanguage': targetLanguage,
       });
-      
-      print('DEBUG: Transcription service response: ${result.data}');
-      return Map<String, dynamic>.from(result.data);
+
+      return result.data as Map<String, dynamic>;
     } catch (e) {
-      print('Error calling transcribeVideo function: $e');
+      developer.log('Error in transcription service: $e');
       rethrow;
     }
   }
 
+  /// Generate a summary for a lesson in the specified language
+  Future<String?> generateSummary(
+    DocumentReference lessonRef,
+    String language,
+  ) async {
+    try {
+      developer.log('Generating summary in $language');
+
+      final callable = _functions.httpsCallable('generateLessonSummary');
+      final result = await callable.call({
+        'lessonPath': lessonRef.path,
+        'language': language,
+      });
+
+      final data = result.data as Map<String, dynamic>;
+      return data['summary'] as String?;
+    } catch (e) {
+      developer.log('Error generating summary: $e');
+      return null;
+    }
+  }
+
   // Check transcription status
-  Future<Map<String, dynamic>> getTranscriptionStatus(String lessonId) async {
+  Future<Map<String, dynamic>> getTranscriptionStatus(DocumentReference lessonRef) async {
     try {
       final result = await _functions.httpsCallable('getTranscriptionStatus').call({
-        'lessonId': lessonId,
+        'lessonPath': lessonRef.path,
       });
 
       return Map<String, dynamic>.from(result.data);
@@ -84,10 +66,10 @@ class TranscriptionService {
   }
 
   // Get transcription results including detected languages
-  Future<Map<String, dynamic>> getTranscriptionResults(String lessonId) async {
+  Future<Map<String, dynamic>> getTranscriptionResults(DocumentReference lessonRef) async {
     try {
       final result = await _functions.httpsCallable('getTranscriptionResults').call({
-        'lessonId': lessonId,
+        'lessonPath': lessonRef.path,
       });
 
       return Map<String, dynamic>.from(result.data);

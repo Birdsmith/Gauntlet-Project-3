@@ -20,6 +20,7 @@ class Lesson {
   final Map<String, dynamic>? metadata;
   final Map<String, String>? subtitleUrls; // Map of language codes to subtitle URLs
   final String? defaultSubtitleLanguage;
+  final String? summary; // AI-generated summary of the lesson content
 
   Lesson({
     required this.id,
@@ -41,6 +42,7 @@ class Lesson {
     this.metadata,
     this.subtitleUrls,
     this.defaultSubtitleLanguage,
+    this.summary,
   });
 
   // Create from Firestore document
@@ -67,6 +69,7 @@ class Lesson {
           ? Map<String, String>.from(map['subtitleUrls'])
           : null,
       defaultSubtitleLanguage: map['defaultSubtitleLanguage'],
+      summary: null, // Summary is loaded from storage, not Firestore
     );
   }
 
@@ -114,6 +117,7 @@ class Lesson {
     Map<String, dynamic>? metadata,
     Map<String, String>? subtitleUrls,
     String? defaultSubtitleLanguage,
+    String? summary,
   }) {
     return Lesson(
       id: id,
@@ -135,6 +139,7 @@ class Lesson {
       metadata: metadata ?? this.metadata,
       subtitleUrls: subtitleUrls ?? this.subtitleUrls,
       defaultSubtitleLanguage: defaultSubtitleLanguage ?? this.defaultSubtitleLanguage,
+      summary: summary ?? this.summary,
     );
   }
 } 

@@ -4,9 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_background_service_android/flutter_background_service_android.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class BackgroundService {
   static Future<void> initializeService() async {
+    if (kIsWeb) return; // Skip initialization on web platform
+    
     final service = FlutterBackgroundService();
 
     // Configure Android-specific settings
@@ -30,6 +33,7 @@ class BackgroundService {
 
   @pragma('vm:entry-point')
   static Future<bool> onIosBackground(ServiceInstance service) async {
+    if (kIsWeb) return true; // No-op for web
     WidgetsFlutterBinding.ensureInitialized();
     DartPluginRegistrant.ensureInitialized();
     return true;
@@ -37,6 +41,8 @@ class BackgroundService {
 
   @pragma('vm:entry-point')
   static void onStart(ServiceInstance service) async {
+    if (kIsWeb) return; // No-op for web
+    
     DartPluginRegistrant.ensureInitialized();
 
     if (service is AndroidServiceInstance) {
@@ -77,11 +83,13 @@ class BackgroundService {
   }
 
   static Future<void> startService() async {
+    if (kIsWeb) return; // No-op for web
     final service = FlutterBackgroundService();
     await service.startService();
   }
 
   static Future<void> stopService() async {
+    if (kIsWeb) return; // No-op for web
     final service = FlutterBackgroundService();
     service.invoke('stopService');
   }

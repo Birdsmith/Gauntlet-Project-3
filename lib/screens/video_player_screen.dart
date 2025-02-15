@@ -17,7 +17,9 @@ import '../services/user_service.dart';
 import '../services/audio_extraction_service.dart';
 import 'dart:io';
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class CustomPortraitControls extends StatelessWidget {
   const CustomPortraitControls({super.key});
@@ -239,23 +241,24 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     super.initState();
     _initializeVideoAndSubtitles();
     
-    // Set allowed orientations and system UI
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-    ]);
-    
-    // Initialize in immersive mode
-    SystemChrome.setEnabledSystemUIMode(
-      SystemUiMode.immersiveSticky,
-      overlays: [],
-    );
+    // Only set orientation and system UI on mobile platforms
+    if (!kIsWeb) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+      
+      SystemChrome.setEnabledSystemUIMode(
+        SystemUiMode.immersiveSticky,
+        overlays: [],
+      );
+    }
 
     flickManager = FlickManager(
       videoPlayerController: VideoPlayerController.network(
         widget.lesson.videoUrl,
-        videoPlayerOptions: VideoPlayerOptions(
+        videoPlayerOptions: kIsWeb ? null : VideoPlayerOptions(
           mixWithOthers: true,
           allowBackgroundPlayback: false,
         ),
@@ -292,6 +295,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   void _updateSystemUIOverlay(bool isFullscreen) {
+    if (kIsWeb) return; // Skip system UI updates on web
+    
     if (isFullscreen) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
       SystemChrome.setPreferredOrientations([
@@ -994,17 +999,25 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                       child: Column(
                         children: [
                           // Video container at the top
-                          Container(
-                            width: constraints.maxWidth,
-                            color: Colors.black,
-                            child: AspectRatio(
-                              aspectRatio: 16 / 9,
-                              child: FlickVideoPlayer(
-                                flickManager: flickManager,
-                                flickVideoWithControls: FlickVideoWithControls(
-                                  controls: _isFullscreen
-                                      ? const CustomLandscapeControls()
-                                      : const CustomPortraitControls(),
+                          Center(
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxWidth: min(constraints.maxWidth, 800), // More conservative max width
+                                maxHeight: min(constraints.maxHeight * 0.7, 800), // Limit height to 70% of screen or 800px
+                              ),
+                              child: Container(
+                                width: constraints.maxWidth,
+                                color: Colors.black,
+                                child: AspectRatio(
+                                  aspectRatio: flickManager.flickVideoManager?.videoPlayerController?.value.aspectRatio ?? 16/9,
+                                  child: FlickVideoPlayer(
+                                    flickManager: flickManager,
+                                    flickVideoWithControls: FlickVideoWithControls(
+                                      controls: _isFullscreen
+                                          ? const CustomLandscapeControls()
+                                          : const CustomPortraitControls(),
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),

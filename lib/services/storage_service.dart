@@ -121,7 +121,7 @@ class StorageService {
     }
   }
 
-  // Get the download URL for a subtitle file
+  // Get the subtitle URL for a given lesson and language
   Future<String> getSubtitleUrl(String lessonId, String languageCode) async {
     try {
       // Get the lesson document to find the video path
@@ -139,25 +139,31 @@ class StorageService {
         throw Exception('Lesson data is null');
       }
 
-      final videoPath = lessonData['rawVideoUrl'] ?? lessonData['videoUrl'];
-      if (videoPath == null) {
-        throw Exception('Video path not found in lesson data');
+      // Get the video URL (try both rawVideoUrl and videoUrl)
+      final videoUrl = lessonData['rawVideoUrl'] ?? lessonData['videoUrl'];
+      if (videoUrl == null) {
+        throw Exception('Video URL not found in lesson');
       }
 
-      // Extract the folder path from the video URL (e.g., 'videos/1/')
-      final folderMatch = RegExp(r'videos/\d+/').firstMatch(videoPath.toString());
-      if (folderMatch == null) {
-        throw Exception('Could not determine video folder path');
+      // Extract the lesson ID from the video path
+      final videoPathMatch = RegExp(r'videos/(\d+)/').firstMatch(videoUrl);
+      if (videoPathMatch == null) {
+        throw Exception('Invalid video path format');
       }
-      final folderPath = folderMatch.group(0)!;
-      developer.log('Video path: $videoPath');
-      developer.log('Folder path: $folderPath');
 
-      // Look for the subtitle file in the subtitles subfolder
-      final subtitlePath = '${folderPath}subtitles/$languageCode.vtt';
-      developer.log('Looking for subtitle at: $subtitlePath');
+      // Construct the subtitle path directly
+      final subtitlePath = 'videos/${videoPathMatch.group(1)}/subtitles/$languageCode.vtt';
+      
+      // Create a reference to the subtitle location
       final subtitleRef = _storage.ref().child(subtitlePath);
-      return await subtitleRef.getDownloadURL();
+      
+      try {
+        // Get the download URL with a longer timeout
+        final downloadUrl = await subtitleRef.getDownloadURL();
+        return downloadUrl;
+      } catch (e) {
+        throw Exception('Subtitle file not found: $e');
+      }
     } catch (e) {
       throw Exception('Failed to get subtitle URL: $e');
     }

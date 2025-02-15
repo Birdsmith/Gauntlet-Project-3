@@ -10,6 +10,8 @@ import '../services/storage_service.dart';
 import '../services/subtitle_service.dart';
 import '../services/transcription_service.dart';
 import '../widgets/lesson_interaction_buttons.dart';
+import '../services/quiz_service.dart';
+import '../widgets/quiz_dialog.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/user_service.dart';
 import '../services/audio_extraction_service.dart';
@@ -223,12 +225,14 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   final TranscriptionService _transcriptionService = TranscriptionService();
   final UserService _userService = UserService();
   final AudioExtractionService _audioExtractor = AudioExtractionService();
+  final QuizService _quizService = QuizService();
   List<String> _availableSubtitleLanguages = [];
   List<Subtitle> _currentSubtitles = [];
   String? _userNativeLanguage;
   final String _userLanguage = 'en'; // Changed from 'en-US' to 'en'
   bool _isFullscreen = false;
   String? _summary;
+  bool _isGeneratingQuiz = false;
 
   @override
   void initState() {
@@ -784,25 +788,25 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   Widget _buildCCButton() {
     return PopupMenuButton<String>(
-            icon: _isTranscribing 
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
-                )
-        : const Icon(
-            Icons.closed_caption,
-            color: Colors.white,
-          ),
+      icon: _isTranscribing 
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            )
+          : const Icon(
+              Icons.closed_caption,
+              color: Colors.white,
+            ),
       tooltip: 'Subtitles',
       enabled: !_isTranscribing,
       iconSize: 28,
       itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
         PopupMenuItem<String>(
-                  value: 'off',
+          value: 'off',
           child: Text(
             'Off',
             style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black),
@@ -835,6 +839,101 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     );
   }
 
+  Future<void> _showQuiz() async {
+    setState(() {
+      _isGeneratingQuiz = true;
+    });
+
+    try {
+      // First try to get existing subtitle URL
+      String? subtitleUrl;
+      try {
+        subtitleUrl = await _storageService.getSubtitleUrl(widget.lesson.id, widget.lesson.language);
+      } catch (e) {
+        developer.log('Subtitle file not found, will generate: $e');
+      }
+
+      if (subtitleUrl == null) {
+        // Get reference to the lesson document
+        final lessonRef = FirebaseFirestore.instance
+            .collection('lessons')
+            .doc(widget.lesson.id);
+
+        // Start transcription process
+        final result = await _transcriptionService.transcribeVideo(
+          lessonRef,
+          widget.lesson.language,
+        );
+        developer.log('Transcription result: $result');
+
+        // Wait for transcription to complete by watching Firestore
+        bool transcriptionComplete = false;
+        final completer = Completer<void>();
+        
+        final subscription = lessonRef.snapshots().listen((snapshot) {
+          if (!snapshot.exists) return;
+          
+          final data = snapshot.data();
+          if (data == null) return;
+          
+          final transcriptionData = data['transcription'] as Map<String, dynamic>?;
+          if (transcriptionData == null) return;
+          
+          final status = transcriptionData['status'] as String?;
+          
+          if (status == 'completed') {
+            transcriptionComplete = true;
+            completer.complete();
+          } else if (status == 'failed') {
+            completer.completeError(transcriptionData['error'] ?? 'Transcription failed');
+          }
+        });
+
+        try {
+          // Wait for completion or timeout after 5 minutes
+          await completer.future.timeout(const Duration(minutes: 5));
+        } finally {
+          subscription.cancel();
+        }
+
+        if (!transcriptionComplete) {
+          throw Exception('Transcription timed out after 5 minutes');
+        }
+
+        // After transcription is complete, get the subtitle URL
+        subtitleUrl = await _storageService.getSubtitleUrl(widget.lesson.id, widget.lesson.language);
+      }
+
+      // Load subtitles and generate quiz
+      final subtitles = await _subtitleService.loadSubtitlesFromUrl(subtitleUrl);
+      final vttContent = subtitles.map((s) => s.text).join(' ');
+      
+      // Generate quiz question
+      QuizQuestion question = await _quizService.generateQuizFromSubtitles(vttContent);
+      
+      if (!mounted) return;
+
+      // Show quiz dialog
+      showDialog(
+        context: context,
+        builder: (context) => QuizDialog(question: question),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to generate quiz: ${e.toString()}'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isGeneratingQuiz = false;
+        });
+      }
+    }
+  }
+
   @override
   void dispose() {
     // Cleanup resources properly
@@ -859,6 +958,14 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         ),
         actions: [
           _buildCCButton(),
+          IconButton(
+            icon: Icon(
+              Icons.quiz,
+              color: Colors.white.withOpacity(_isGeneratingQuiz ? 0.5 : 1.0),
+            ),
+            onPressed: _isGeneratingQuiz ? null : _showQuiz,
+            tooltip: 'Generate Quiz',
+          ),
         ],
       ),
       body: Provider.value(
@@ -895,20 +1002,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                               child: FlickVideoPlayer(
                                 flickManager: flickManager,
                                 flickVideoWithControls: FlickVideoWithControls(
-                                  controls: const CustomPortraitControls(),
-                                  playerLoadingFallback: const Center(
-                                    child: CircularProgressIndicator(),
-                                  ),
-                                  backgroundColor: Colors.transparent,
-                                  willVideoPlayerControllerChange: false,
-                                ),
-                                flickVideoWithControlsFullscreen: FlickVideoWithControls(
-                                  controls: const CustomLandscapeControls(),
-                                  playerLoadingFallback: const Center(
-                                    child: CircularProgressIndicator(),
-                                  ),
-                                  backgroundColor: Colors.transparent,
-                                  willVideoPlayerControllerChange: false,
+                                  controls: _isFullscreen
+                                      ? const CustomLandscapeControls()
+                                      : const CustomPortraitControls(),
                                 ),
                               ),
                             ),
@@ -967,9 +1063,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                                               color: Colors.white,
                                               fontSize: 18,
                                               height: 1.5,
-                                              fontFamily: Platform.isIOS ? '.SF UI Text' : 'Roboto',
+                                              fontFamily: Platform.isIOS ? '.SF UI Text' : 'Noto Sans JP',
                                               fontFamilyFallback: Platform.isIOS ? 
-                                                ['Hiragino Sans'] : 
+                                                ['Hiragino Sans', 'Hiragino Kaku Gothic ProN'] : 
                                                 ['Noto Sans CJK JP', 'DroidSansFallback'],
                                               letterSpacing: 0.5,
                                               fontWeight: FontWeight.w500,

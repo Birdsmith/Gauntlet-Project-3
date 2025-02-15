@@ -2,6 +2,7 @@ import 'package:http/http.dart' as http;
 import 'dart:developer' as developer;
 import 'package:flutter/foundation.dart';
 import 'dart:convert';
+import 'dart:math';
 
 class Subtitle {
   final int index;
@@ -20,6 +21,8 @@ class Subtitle {
 class SubtitleService {
   // Parse WebVTT content into a list of Subtitle objects
   List<Subtitle> parseWebVTT(String content) {
+    // Ensure content is properly decoded UTF-8
+    content = content.replaceAll('\r\n', '\n');
     final List<Subtitle> subtitles = [];
     final List<String> lines = content.split('\n');
     
@@ -57,7 +60,7 @@ class SubtitleService {
         
         currentLine++;
         
-        // Parse subtitle text
+        // Parse subtitle text with proper encoding handling
         String text = '';
         while (currentLine < lines.length && 
                lines[currentLine].trim().isNotEmpty && 
@@ -65,12 +68,15 @@ class SubtitleService {
           if (text.isNotEmpty) text += '\n';
           final line = lines[currentLine].trim();
           // Log each subtitle line for debugging
-          developer.log('Subtitle line: $line (length: ${line.length}, codeUnits: ${line.codeUnits})');
+          developer.log('Subtitle line (${line.length} chars): $line');
+          developer.log('Line codeUnits: ${line.codeUnits}');
           text += line;
           currentLine++;
         }
         
         if (text.isNotEmpty) {
+          // Clean any potential invalid characters
+          text = text.replaceAll(RegExp(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]'), '');
           developer.log('Adding subtitle - Index: $index, Text: $text');
           subtitles.add(Subtitle(
             index: index++,
@@ -143,37 +149,18 @@ class SubtitleService {
   Future<List<Subtitle>> loadSubtitlesFromUrl(String url) async {
     try {
       final response = await http.get(Uri.parse(url));
+      
       if (response.statusCode != 200) {
-        throw Exception('Failed to load subtitles: HTTP ${response.statusCode}');
-      }
-      
-      if (response.body.isEmpty) {
-        throw Exception('Empty subtitle file received');
+        throw Exception('Failed to load subtitles: ${response.statusCode}');
       }
 
-      // Check for UTF-8 BOM and remove if present
-      List<int> bytes = response.bodyBytes;
-      if (bytes.length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF) {
-        bytes = bytes.sublist(3);
-      }
+      // Explicitly decode the response body as UTF-8
+      final decodedContent = utf8.decode(response.bodyBytes, allowMalformed: true);
+      developer.log('Loaded subtitle content (first 100 chars): ${decodedContent.substring(0, min(100, decodedContent.length))}');
       
-      // Decode as UTF-8
-      String content = const Utf8Decoder().convert(bytes);
-      
-      // Log the first few lines for debugging
-      developer.log('First 200 characters of subtitle content: ${content.substring(0, content.length > 200 ? 200 : content.length)}');
-      
-      if (!content.trim().startsWith('WEBVTT')) {
-        throw FormatException('Invalid WebVTT file: missing WEBVTT header');
-      }
-
-      // Clean any invalid UTF-8 sequences
-      content = content.replaceAll(RegExp(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]'), '');
-      
-      return parseWebVTT(content);
+      return parseWebVTT(decodedContent);
     } catch (e) {
-      developer.log('Error loading subtitles from URL: $url', error: e);
-      throw Exception('Error loading subtitles: $e');
+      throw Exception('Failed to load subtitles: $e');
     }
   }
 } 

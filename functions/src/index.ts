@@ -1,7 +1,7 @@
 import { onCall, HttpsOptions } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import { transcribeVideoWithWhisper } from './services/whisper-transcription';
-import { HttpsError } from "firebase-functions/v1/https";
+import { HttpsError } from "firebase-functions/v2/https";
 import * as dotenv from 'dotenv';
 import { defineSecret } from 'firebase-functions/params';
 import OpenAI from 'openai';
@@ -127,20 +127,13 @@ export const generateLessonSummary = onCall({
     }
 
     const lessonData = lessonDoc.data();
-    console.log('Lesson data:', JSON.stringify(lessonData, null, 2));
+    console.log('Lesson data:', lessonData);
 
-    if (!lessonData?.transcription) {
-      console.log('No transcription field found in lesson data');
-      throw new HttpsError('failed-precondition', 'Transcription not completed for this lesson');
-    }
-
-    if (lessonData.transcription.status !== 'completed') {
-      console.log('Transcription status is not completed:', lessonData.transcription.status);
+    if (!lessonData?.transcription || lessonData.transcription.status !== 'completed') {
       throw new HttpsError('failed-precondition', 'Transcription not completed for this lesson');
     }
 
     // Check if transcription is in the requested language
-    console.log('Checking language match - Requested:', language, 'Current:', lessonData.transcription.outputLanguage);
     if (lessonData.transcription.outputLanguage !== language) {
       throw new HttpsError('failed-precondition', `Transcription is not available in ${language}. Current transcription is in ${lessonData.transcription.outputLanguage}`);
     }
@@ -148,7 +141,6 @@ export const generateLessonSummary = onCall({
     // Get transcript from the transcription field
     const transcript = lessonData.transcription.text;  // Changed from transcript to text
     if (!transcript) {
-      console.log('No text field found in transcription data:', lessonData.transcription);
       throw new HttpsError('failed-precondition', 'No transcript available for this lesson');
     }
 
@@ -187,5 +179,108 @@ export const generateLessonSummary = onCall({
   } catch (error) {
     console.error('Error generating summary:', error);
     throw new HttpsError('internal', 'Failed to generate summary', error);
+  }
+});
+
+export const generateQuiz = onCall({ 
+  ...functionConfig,
+  secrets: [openaiApiKey]
+}, async (request) => {
+  // Verify authentication
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated to generate quizzes');
+  }
+
+  try {
+    const { text } = request.data;
+    if (!text) {
+      throw new HttpsError('invalid-argument', 'Text is required');
+    }
+
+    console.log('Received VTT content length:', text.length);
+    console.log('Sample of VTT content:', text.substring(0, 200));
+
+    const openai = new OpenAI({
+      apiKey: openaiApiKey.value(),
+    });
+
+    // First, extract the text content from the VTT
+    console.log('Extracting text from VTT...');
+    const extractResponse = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      messages: [
+        {
+          role: "system",
+          content: "You are a subtitle text extractor. Extract only the text content from the WebVTT format, ignoring timestamps and metadata. Combine the text into a single paragraph."
+        },
+        {
+          role: "user",
+          content: text
+        }
+      ],
+      temperature: 0.3,
+    });
+
+    const extractedText = extractResponse.choices[0]?.message?.content?.trim();
+    if (!extractedText) {
+      throw new HttpsError('internal', 'Failed to extract text from VTT');
+    }
+
+    console.log('Extracted text:', extractedText);
+
+    // Now generate the quiz using the extracted text
+    console.log('Generating quiz...');
+    const quizResponse = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      messages: [
+        {
+          role: "system",
+          content: `Given the following text from a video, identify an important keyword or concept and create a multiple choice question about its definition. The question should test understanding of the concept.
+
+Text: ${extractedText}
+
+Generate a response in the following JSON format:
+{
+  "keyword": "the identified keyword",
+  "question": "What is the definition of [keyword]?",
+  "correctAnswer": "the correct definition",
+  "incorrectAnswers": ["wrong answer 1", "wrong answer 2", "wrong answer 3"]
+}
+
+Make sure the incorrect answers are plausible but clearly wrong. The answers should be concise.`
+        }
+      ],
+      temperature: 0.7,
+    });
+
+    console.log('Received quiz response from OpenAI');
+    const content = quizResponse.choices[0]?.message?.content;
+    if (!content) {
+      throw new HttpsError('internal', 'OpenAI returned empty response');
+    }
+
+    console.log('OpenAI response:', content);
+    
+    try {
+      const quizData = JSON.parse(content);
+      
+      // Validate the quiz data structure
+      if (!quizData.keyword || !quizData.question || !quizData.correctAnswer || !Array.isArray(quizData.incorrectAnswers)) {
+        console.error('Invalid quiz data structure:', quizData);
+        throw new HttpsError('internal', 'Generated quiz data is missing required fields');
+      }
+      
+      return quizData;
+    } catch (parseError) {
+      console.error('Failed to parse OpenAI response as JSON:', parseError);
+      console.error('Raw content:', content);
+      throw new HttpsError('internal', 'Failed to parse quiz data as JSON');
+    }
+  } catch (error) {
+    console.error('Error generating quiz:', error);
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    throw new HttpsError('internal', 'Failed to generate quiz: ' + error.message);
   }
 }); 

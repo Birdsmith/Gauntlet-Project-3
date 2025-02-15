@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
@@ -32,9 +33,11 @@
 
         <!-- Background Service Declaration -->
         <service
-            android:name="com.example.app.BackgroundService"
+            android:name="id.flutter.flutter_background_service.BackgroundService"
+            android:foregroundServiceType="dataSync|location|mediaPlayback|mediaProjection|phoneCall|remoteMessaging|shortService|systemExempted"
             android:exported="false"
-            android:stopWithTask="false" />
+            android:stopWithTask="false"
+            tools:replace="android:exported" />
             
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
